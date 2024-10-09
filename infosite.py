@@ -2,6 +2,8 @@ import telebot
 import openpyxl
 import os
 from dotenv import load_dotenv
+import requests
+from io import BytesIO
 
 # Cargar variables de entorno
 load_dotenv()
@@ -13,18 +15,18 @@ if not BOT_TOKEN:
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Obtén la ruta del directorio actual del script
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# Cargar el archivo Excel desde OneDrive
+EXCEL_URL = os.getenv('EXCEL_URL')
+if not EXCEL_URL:
+    raise ValueError("No se encontró la URL del Excel. Asegúrate de tener un archivo .env con EXCEL_URL=tu_url")
 
-# Construye la ruta completa al archivo Excel
-excel_path = os.path.join(current_dir, 'database.xlsx')
-
-# Cargar el archivo Excel
 try:
-    workbook = openpyxl.load_workbook(excel_path, data_only=True)
-    print(f"Archivo Excel cargado exitosamente: {excel_path}")
-except FileNotFoundError:
-    print(f"Error: No se encontró el archivo '{excel_path}'. Asegúrate de que el archivo exista en esta ubicación.")
+    response = requests.get(EXCEL_URL)
+    response.raise_for_status()  # Esto lanzará una excepción para códigos de estado HTTP no exitosos
+    workbook = openpyxl.load_workbook(BytesIO(response.content), data_only=True)
+    print("Archivo Excel cargado exitosamente desde OneDrive")
+except requests.RequestException as e:
+    print(f"Error al descargar el archivo Excel: {e}")
     exit(1)
 except Exception as e:
     print(f"Error al cargar el archivo Excel: {e}")
@@ -39,8 +41,7 @@ def buscar_por_id(id):
     for row in sheet.iter_rows(min_row=2, values_only=True):
         if str(row[1]) == id:
             print(f"ID encontrado: {id}")
-            # Ahora usando las columnas 18 y 19 para las coordenadas
-            latitud, longitud = row[18], row[19]  # Restamos 1 porque los índices en Python comienzan en 0
+            latitud, longitud = row[18], row[19]
             maps_link = crear_enlace_maps(latitud, longitud)
             return (f"ID: {row[1]}\nNombre: {row[2]}\nDirección: {row[3]}\n"
                     f"Pto 0/1/0: {row[4]}\nPto 0/2/0: {row[5]}\nOperacion: {row[9]}\nLlaves en: {row[6]}\n"
@@ -55,8 +56,7 @@ def buscar_por_nombre(nombre):
     for row in sheet.iter_rows(min_row=2, values_only=True):
         if row[2].lower() == nombre.lower():
             print(f"Nombre encontrado: {nombre}")
-            # Ahora usando las columnas 18 y 19 para las coordenadas
-            latitud, longitud = row[17], row[18]  # Restamos 1 porque los índices en Python comienzan en 0
+            latitud, longitud = row[18], row[19]
             maps_link = crear_enlace_maps(latitud, longitud)
             return (f"ID: {row[1]}\nNombre: {row[2]}\nDirección: {row[3]}\n"
                     f"Barrio: {row[4]}\nLocalidad: {row[5]}\n"
@@ -98,10 +98,6 @@ def echo_all(message):
     bot.reply_to(message, "No entiendo ese comando. Por favor, usa /start para ver las instrucciones.")
 
 # Iniciar el bot
-try:
+if __name__ == "__main__":
     print("Bot iniciado. Presiona Ctrl+C para detener.")
     bot.polling()
-except Exception as e:
-    print(f"Error en la ejecución del bot: {e}")
-finally:
-    print("Bot detenido.")
