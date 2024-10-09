@@ -8,6 +8,17 @@ from io import BytesIO
 # Cargar variables de entorno
 load_dotenv()
 
+#servidor web
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/')
+def hello_world():
+    return 'Bot funcionando'
+
+if __name__ == '__main__':
+    app.run()
+
 # Configurar el bot
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 if not BOT_TOKEN:
