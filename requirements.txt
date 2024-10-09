@@ -1,0 +1,4 @@
+pyTelegramBotAPI
+openpyxl
+requests
+python-dotenv
