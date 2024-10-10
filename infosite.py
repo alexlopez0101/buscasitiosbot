@@ -67,6 +67,14 @@ def webhook():
     bot.set_webhook(url='https://sitebot-f2113f50dc6e.herokuapp.com/' + BOT_TOKEN)
     return "!", 200
 
+@bot.message_handler(func=lambda message: True)
+def echo_message(message):
+    bot.reply_to(message, message.text)
+
+# Ejecutar el bot
+if __name__ == '__main__':
+    bot.infinity_polling()
+
 if __name__ == "__main__":
     logger.info("Iniciando la aplicación Flask")
     app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
