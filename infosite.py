@@ -64,7 +64,7 @@ def getMessage():
 @app.route("/")
 def webhook():
     bot.remove_webhook()
-    bot.set_webhook(url='https://your-app-name.herokuapp.com/' + BOT_TOKEN)
+    bot.set_webhook(url='https://sitebot.herokuapp.com/' + BOT_TOKEN)
     return "!", 200
 
 if __name__ == "__main__":
