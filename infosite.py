@@ -4,6 +4,8 @@ import os
 
 # Cargar el token del bot desde las variables de entorno
 TOKEN = os.getenv("BOT_TOKEN")
+if TOKEN is None:
+    raise ValueError("BOT_TOKEN no está configurado.")
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
