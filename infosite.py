@@ -35,7 +35,8 @@ bot = telebot.TeleBot(BOT_TOKEN)
 def crear_enlace_maps(latitud, longitud):
     return f"https://www.google.com/maps/search/?api=1&query={latitud},{longitud}"
 
-def buscar_por_id(id):
+# Función para buscar por ID
+def buscar_por_id(id, chat_id):
     print(f"Buscando ID: {id}")
     
     # Búsqueda en el DataFrame de pandas
@@ -43,15 +44,21 @@ def buscar_por_id(id):
         if str(row['ID']).strip() == id.strip():
             latitud, longitud = row['Columna1'], row['Columna2']
             maps_link = crear_enlace_maps(latitud, longitud)
-            return (f"Codigo de Maximo: {row['COD MAX']}\nID: {row['ID']}\nNombre: {row['NOMBRE']}\nDirección: {row['DIRECCION']}\nCuenta NIC: {row['CTA NIC']}"
-                    f"\nPto 0/1/0: {row['TX A']}\nPto 0/2/0: {row['TX B']}\nLlaves: {row['LLAVES']}\nNotas: {row['OBSERVACIONES']}"
-                    f"\nCoordenadas: {latitud}, {longitud}\n"
+            return (f"Codigo de Maximo: {row['COD MAX']}\nID: {row['ID']}\nNombre: {row['NOMBRE']}\nDirección: {row['DIRECCION']}\nCuenta NIC: {row['CTA NIC']} "
+                    f"\nPto 0/1/0: {row['TX A']}\nPto 0/2/0: {row['TX B']}\nLlaves: {row['LLAVES']}\nNotas: {row['OBSERVACIONES']}\nCoordenadas: {latitud}, {longitud}\n"
                     f"\nUbicación en Maps: {maps_link}")
-    
-    print(f"ID no encontrado: {id}")
-    return "No se encontró el ID especificado."
 
-def buscar_por_nombre(nombre):
+    print(f"ID no encontrado: {id}")
+    # Mostrar botón para volver a intentar la búsqueda
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_volver = types.InlineKeyboardButton("Volver a buscar", callback_data="buscar_otro_id")
+    markup.add(btn_volver)
+    
+    bot.send_message(chat_id, "No se encontró el ID especificado. ¿Quieres intentar nuevamente?", reply_markup=markup)
+    return None  # No devolver nada ya que estamos enviando el mensaje desde aquí.
+
+# Función para buscar por Nombre
+def buscar_por_nombre(nombre, chat_id):
     print(f"Buscando nombre: {nombre}")
 
     # Búsqueda en el DataFrame de pandas
@@ -59,13 +66,47 @@ def buscar_por_nombre(nombre):
         if row['Nombre'].lower().strip() == nombre.lower().strip():
             latitud, longitud = row['Latitud'], row['Longitud']
             maps_link = crear_enlace_maps(latitud, longitud)
-            return (f"Codigo de Maximo: {row['Codigo']}\nID: {row['ID']}\nNombre: {row['Nombre']}\nDirección: {row['Direccion']}\nCuenta NIC: {row['Cuenta NIC']}"
-                    f"\nPto 0/1/0: {row['Pto 0/1/0']}\nPto 0/2/0: {row['Pto 0/2/0']}\nLlaves: {row['Llaves']}\nNotas: {row['Notas']}"
-                    f"\nCoordenadas: {latitud}, {longitud}\n"
+            return (f"Codigo de Maximo: {row['Codigo']}\nID: {row['ID']}\nNombre: {row['Nombre']}\nDirección: {row['Direccion']}\nCuenta NIC: {row['Cuenta NIC']} "
+                    f"\nPto 0/1/0: {row['Pto 0/1/0']}\nPto 0/2/0: {row['Pto 0/2/0']}\nLlaves: {row['Llaves']}\nNotas: {row['Notas']}\nCoordenadas: {latitud}, {longitud}\n"
                     f"\nUbicación en Maps: {maps_link}")
     
     print(f"Nombre no encontrado: {nombre}")
-    return "No se encontró el nombre especificado."
+    # Mostrar botón para volver a intentar la búsqueda
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_volver = types.InlineKeyboardButton("Volver a buscar", callback_data="buscar_otro_nombre")
+    markup.add(btn_volver)
+    
+    bot.send_message(chat_id, "No se encontró el nombre especificado. ¿Quieres intentar nuevamente?", reply_markup=markup)
+    return None  # No devolver nada ya que estamos enviando el mensaje desde aquí.
+
+# Modificar los handlers de callback
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "buscar_id":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el ID:")
+        bot.register_next_step_handler(msg, process_id)  # Procesar la entrada del usuario para ID
+    elif call.data == "buscar_nombre":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el nombre:")
+        bot.register_next_step_handler(msg, process_name)  # Procesar la entrada del usuario para nombre
+    elif call.data == "buscar_otro_id":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el ID nuevamente:")
+        bot.register_next_step_handler(msg, process_id)  # Procesar la entrada del usuario para ID
+    elif call.data == "buscar_otro_nombre":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el nombre nuevamente:")
+        bot.register_next_step_handler(msg, process_name)  # Procesar la entrada del usuario para nombre
+
+# Modificar las funciones process_id y process_name
+def process_id(message):
+    id = message.text.strip()  # Limpiar espacios
+    resultado = buscar_por_id(id, message.chat.id)
+    if resultado:
+        bot.reply_to(message, resultado)
+
+def process_name(message):
+    nombre = message.text.strip().lower()  # Convertir a minúsculas y limpiar espacios
+    resultado = buscar_por_nombre(nombre, message.chat.id)
+    if resultado:
+        bot.reply_to(message, resultado)
 
 # Función para mostrar el menú interactivo con botones de opción
 @bot.message_handler(commands=['buscar'])
@@ -89,17 +130,6 @@ def callback_query(call):
         msg = bot.send_message(call.message.chat.id, "Ingresa el nombre:")
         bot.register_next_step_handler(msg, process_name)  # Procesar la entrada del usuario para nombre
 
-# Función para procesar el ID ingresado por el usuario
-def process_id(message):
-    id = message.text.strip()  # Limpiar espacios
-    resultado = buscar_por_id(id)
-    bot.reply_to(message, resultado)
-
-# Función para procesar el nombre ingresado por el usuario
-def process_name(message):
-    nombre = message.text.strip().lower()  # Convertir a minúsculas y limpiar espacios
-    resultado = buscar_por_nombre(nombre)
-    bot.reply_to(message, resultado)
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
