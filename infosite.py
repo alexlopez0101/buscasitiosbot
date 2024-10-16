@@ -1,6 +1,11 @@
 from flask import Flask, request
 import telebot
 import os
+from dotenv import load_dotenv
+from telebot import types
+import requests
+import pandas as pd
+from io import BytesIO
 
 # Cargar el token del bot desde las variables de entorno
 TOKEN = os.getenv("BOT_TOKEN")
@@ -22,14 +27,14 @@ def getMessage():
 def index():
     return "El bot está funcionando", 200
 
-# Aquí puedes agregar cualquier otra lógica del bot que desees.
-import telebot
-import os
-from dotenv import load_dotenv
-from telebot import types
-import requests
-import pandas as pd
-from io import BytesIO
+# Función para crear el menú de opciones
+def crear_menu_busqueda():
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_id = types.InlineKeyboardButton("Buscar por ID", callback_data="buscar_id")
+    btn_nombre = types.InlineKeyboardButton("Buscar por Nombre", callback_data="buscar_nombre")
+    markup.add(btn_id, btn_nombre)
+    return markup
+
 
 # Cargar variables de entorno
 load_dotenv()
@@ -154,6 +159,27 @@ def callback_query(call):
     elif call.data == "buscar_nombre":
         msg = bot.send_message(call.message.chat.id, "Ingresa el nombre:")
         bot.register_next_step_handler(msg, process_name)  # Procesar la entrada del usuario para nombre
+
+
+# Función para manejar las opciones del menú
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "buscar_id":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el ID:")
+        bot.register_next_step_handler(msg, process_id)  # Procesar la entrada del usuario para ID
+    elif call.data == "buscar_nombre":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el nombre:")
+        bot.register_next_step_handler(msg, process_name)  # Procesar la entrada del usuario para nombre
+
+# Función para procesar el ID ingresado por el usuario
+def process_id(message):
+    id = message.text.strip()  # Limpiar espacios
+    buscar_por_id(id, message.chat.id)
+
+# Función para procesar el nombre ingresado por el usuario
+def process_name(message):
+    nombre = message.text.strip().lower()  # Convertir a minúsculas y limpiar espacios
+    buscar_por_nombre(nombre, message.chat.id)
 
 
 @bot.message_handler(commands=['start', 'help'])
