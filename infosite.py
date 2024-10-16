@@ -192,15 +192,6 @@ def echo_all(message):
     print(f"Mensaje recibido: {message.text}")
     bot.reply_to(message, "No entiendo ese comando. Por favor, usa /start para ver las instrucciones.")
 
-# Iniciar el bot
-try:
-    print("Bot iniciado. Presiona Ctrl+C para detener.")
-    bot.polling()
-except Exception as e:
-    print(f"Error en la ejecución del bot: {e}")
-finally:
-    print("Bot detenido.")
-
 
 if __name__ == "__main__":
     # Iniciar la aplicación en el puerto que Render asigna automáticamente
