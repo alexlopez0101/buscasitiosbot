@@ -1,18 +1,29 @@
-import os
 import telebot
-import openpyxl
+import os
 from dotenv import load_dotenv
+from telebot import types
 import requests
+import pandas as pd
 from io import BytesIO
-from flask import Flask, request
-import logging
-
-# Configurar logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 # Cargar variables de entorno
 load_dotenv()
+
+# URL de descarga directa del archivo en Google Drive
+file_id = '1Ua1On6A2RwQGF82LO1tbdqo6pHbvq9Zo'
+download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+
+# Descargar el archivo Excel
+response = requests.get(download_url)
+response.raise_for_status()  # Para verificar que la descarga fue exitosa
+
+# Leer el archivo Excel descargado directamente desde la respuesta
+excel_data = BytesIO(response.content)
+df = pd.read_excel(excel_data, sheet_name='Sitios Bogota')
+
+# Leer el archivo Excel con pandas
+print(df.head())
+
 
 # Configurar el bot
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -21,60 +32,90 @@ if not BOT_TOKEN:
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Configurar Flask
-app = Flask(__name__)
+def crear_enlace_maps(latitud, longitud):
+    return f"https://www.google.com/maps/search/?api=1&query={latitud},{longitud}"
 
-# Cargar el archivo Excel desde Google Drive
-EXCEL_URL = os.getenv('EXCEL_URL')
-if not EXCEL_URL:
-    raise ValueError("No se encontró la URL del Excel. Asegúrate de tener un archivo .env con EXCEL_URL=tu_url")
-
-try:
-    logger.debug(f"Intentando descargar el archivo Excel desde: {EXCEL_URL}")
-    response = requests.get(EXCEL_URL, allow_redirects=True)
-    response.raise_for_status()  # Esto lanzará una excepción para códigos de estado HTTP no exitosos
+def buscar_por_id(id):
+    print(f"Buscando ID: {id}")
     
-    logger.debug(f"Archivo descargado exitosamente. Tamaño: {len(response.content)} bytes")
-    logger.debug(f"Tipo de contenido: {response.headers.get('Content-Type')}")
+    # Búsqueda en el DataFrame de pandas
+    for idx, row in df.iterrows():
+        if str(row['ID']).strip() == id.strip():
+            latitud, longitud = row['Columna1'], row['Columna2']
+            maps_link = crear_enlace_maps(latitud, longitud)
+            return (f"Codigo de Maximo: {row['COD MAX']}\nID: {row['ID']}\nNombre: {row['NOMBRE']}\nDirección: {row['DIRECCION']}\nCuenta NIC: {row['CTA NIC']}"
+                    f"\nPto 0/1/0: {row['TX A']}\nPto 0/2/0: {row['TX B']}\nLlaves: {row['LLAVES']}\nNotas: {row['OBSERVACIONES']}"
+                    f"\nCoordenadas: {latitud}, {longitud}\n"
+                    f"\nUbicación en Maps: {maps_link}")
     
-    excel_content = BytesIO(response.content)
-    workbook = openpyxl.load_workbook(excel_content, data_only=True)
-    logger.info("Archivo Excel cargado exitosamente desde Google Drive")
+    print(f"ID no encontrado: {id}")
+    return "No se encontró el ID especificado."
+
+def buscar_por_nombre(nombre):
+    print(f"Buscando nombre: {nombre}")
+
+    # Búsqueda en el DataFrame de pandas
+    for idx, row in df.iterrows():
+        if row['Nombre'].lower().strip() == nombre.lower().strip():
+            latitud, longitud = row['Latitud'], row['Longitud']
+            maps_link = crear_enlace_maps(latitud, longitud)
+            return (f"Codigo de Maximo: {row['Codigo']}\nID: {row['ID']}\nNombre: {row['Nombre']}\nDirección: {row['Direccion']}\nCuenta NIC: {row['Cuenta NIC']}"
+                    f"\nPto 0/1/0: {row['Pto 0/1/0']}\nPto 0/2/0: {row['Pto 0/2/0']}\nLlaves: {row['Llaves']}\nNotas: {row['Notas']}"
+                    f"\nCoordenadas: {latitud}, {longitud}\n"
+                    f"\nUbicación en Maps: {maps_link}")
     
-    # Imprimir información sobre las hojas del libro
-    logger.debug(f"Hojas en el libro: {workbook.sheetnames}")
-    for sheet in workbook:
-        logger.debug(f"Hoja: {sheet.title}, Filas: {sheet.max_row}, Columnas: {sheet.max_column}")
+    print(f"Nombre no encontrado: {nombre}")
+    return "No se encontró el nombre especificado."
 
-except requests.RequestException as e:
-    logger.error(f"Error al descargar el archivo Excel: {e}")
-    logger.debug(f"Respuesta de la solicitud: {e.response.text if e.response else 'No hay respuesta'}")
-    exit(1)
-except Exception as e:
-    logger.error(f"Error inesperado al cargar el archivo Excel: {e}")
-    exit(1)
+# Función para mostrar el menú interactivo con botones de opción
+@bot.message_handler(commands=['buscar'])
+def show_menu(message):
+    # Crear botones para buscar por ID o por nombre
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_id = types.InlineKeyboardButton("Buscar por ID", callback_data="buscar_id")
+    btn_nombre = types.InlineKeyboardButton("Buscar por Nombre", callback_data="buscar_nombre")
+    markup.add(btn_id, btn_nombre)
+    
+    # Enviar mensaje con los botones
+    bot.send_message(message.chat.id, "Selecciona una opción:", reply_markup=markup)
 
-# El resto de tu código (funciones buscar_por_id, buscar_por_nombre, etc.) va aquí...
+# Función que maneja los botones seleccionados
+@bot.callback_query_handler(func=lambda call: True)
+def callback_query(call):
+    if call.data == "buscar_id":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el ID:")
+        bot.register_next_step_handler(msg, process_id)  # Procesar la entrada del usuario para ID
+    elif call.data == "buscar_nombre":
+        msg = bot.send_message(call.message.chat.id, "Ingresa el nombre:")
+        bot.register_next_step_handler(msg, process_name)  # Procesar la entrada del usuario para nombre
 
-@app.route('/' + BOT_TOKEN, methods=['POST'])
-def getMessage():
-    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
-    return "!", 200
+# Función para procesar el ID ingresado por el usuario
+def process_id(message):
+    id = message.text.strip()  # Limpiar espacios
+    resultado = buscar_por_id(id)
+    bot.reply_to(message, resultado)
 
-@app.route("/")
-def webhook():
-    bot.remove_webhook()
-    bot.set_webhook(url='https://sitebot-f2113f50dc6e.herokuapp.com/' + BOT_TOKEN)
-    return "!", 200
+# Función para procesar el nombre ingresado por el usuario
+def process_name(message):
+    nombre = message.text.strip().lower()  # Convertir a minúsculas y limpiar espacios
+    resultado = buscar_por_nombre(nombre)
+    bot.reply_to(message, resultado)
+
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    print(f"Comando recibido: {message.text}")
+    bot.reply_to(message, "Bienvenido! Usa /buscar para comenzar y seleccionar entre ID o Nombre.")
 
 @bot.message_handler(func=lambda message: True)
-def echo_message(message):
-    bot.reply_to(message, message.text)
+def echo_all(message):
+    print(f"Mensaje recibido: {message.text}")
+    bot.reply_to(message, "No entiendo ese comando. Por favor, usa /start para ver las instrucciones.")
 
-# Ejecutar el bot
-if __name__ == '__main__':
-    bot.infinity_polling()
-
-if __name__ == "__main__":
-    logger.info("Iniciando la aplicación Flask")
-    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+# Iniciar el bot
+try:
+    print("Bot iniciado. Presiona Ctrl+C para detener.")
+    bot.polling()
+except Exception as e:
+    print(f"Error en la ejecución del bot: {e}")
+finally:
+    print("Bot detenido.")
