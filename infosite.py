@@ -1,3 +1,26 @@
+from flask import Flask, request
+import telebot
+import os
+
+# Cargar el token del bot desde las variables de entorno
+TOKEN = os.getenv("BOT_TOKEN")
+bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
+
+# Configurar el webhook para recibir actualizaciones
+@app.route("/" + TOKEN, methods=['POST'])
+def getMessage():
+    json_str = request.get_data().decode('UTF-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "¡Recibido!", 200
+
+# Ruta de prueba para asegurarnos de que el servidor esté funcionando
+@app.route("/")
+def index():
+    return "El bot está funcionando", 200
+
+# Aquí puedes agregar cualquier otra lógica del bot que desees.
 import telebot
 import os
 from dotenv import load_dotenv
@@ -64,10 +87,10 @@ def buscar_por_nombre(nombre, chat_id):
     # Búsqueda en el DataFrame de pandas
     for idx, row in df.iterrows():
         if row['Nombre'].lower().strip() == nombre.lower().strip():
-            latitud, longitud = row['Latitud'], row['Longitud']
+            latitud, longitud = row['Columna1'], row['Columna2']
             maps_link = crear_enlace_maps(latitud, longitud)
-            return (f"Codigo de Maximo: {row['Codigo']}\nID: {row['ID']}\nNombre: {row['Nombre']}\nDirección: {row['Direccion']}\nCuenta NIC: {row['Cuenta NIC']} "
-                    f"\nPto 0/1/0: {row['Pto 0/1/0']}\nPto 0/2/0: {row['Pto 0/2/0']}\nLlaves: {row['Llaves']}\nNotas: {row['Notas']}\nCoordenadas: {latitud}, {longitud}\n"
+            return (f"Codigo de Maximo: {row['COD MAX']}\nID: {row['ID']}\nNombre: {row['NOMBRE']}\nDirección: {row['DIRECCION']}\nCuenta NIC: {row['CTA NIC']} "
+                    f"\nPto 0/1/0: {row['TX A']}\nPto 0/2/0: {row['TX B']}\nLlaves: {row['LLAVES']}\nNotas: {row['OBSERVACIONES']}\nCoordenadas: {latitud}, {longitud}\n"
                     f"\nUbicación en Maps: {maps_link}")
     
     print(f"Nombre no encontrado: {nombre}")
@@ -149,3 +172,8 @@ except Exception as e:
     print(f"Error en la ejecución del bot: {e}")
 finally:
     print("Bot detenido.")
+
+
+if __name__ == "__main__":
+    # Iniciar la aplicación en el puerto que Render asigna automáticamente
+    app.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
