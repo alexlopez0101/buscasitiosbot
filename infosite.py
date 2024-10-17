@@ -17,10 +17,13 @@ app = Flask(__name__)
 # Configurar el webhook para recibir actualizaciones
 @app.route("/" + TOKEN, methods=['POST'])
 def getMessage():
-    json_str = request.get_data().decode('UTF-8')
-    print(f"Actualización recibida: {json_str}")
-    update = telebot.types.Update.de_json(json_str)
-    bot.process_new_updates([update])
+    try:
+        json_str = request.get_data().decode('UTF-8')
+        print(f"Actualización recibida: {json_str}")
+        update = telebot.types.Update.de_json(json_str)
+        bot.process_new_updates([update])
+    except Exception as e:
+        print(f"Error al procesar la actualización: {e}")
     return "¡Recibido!", 200
 
 # Ruta de prueba para asegurarnos de que el servidor esté funcionando
