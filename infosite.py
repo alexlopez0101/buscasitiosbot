@@ -18,6 +18,7 @@ app = Flask(__name__)
 @app.route("/" + TOKEN, methods=['POST'])
 def getMessage():
     json_str = request.get_data().decode('UTF-8')
+    print(f"Actualización recibida: {json_str}")
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "¡Recibido!", 200
