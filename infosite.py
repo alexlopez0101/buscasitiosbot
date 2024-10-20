@@ -147,29 +147,33 @@ def show_menu(message):
     except Exception as e:
         print(f"Error en show_menu: {e}")
 
-@app.route("/" + TOKEN, methods=['POST'])
-def getMessage():
+@app.route("/webhook", methods=['POST'])
+def webhook():
     try:
         json_str = request.get_data().decode('UTF-8')
         print(f"Actualización recibida: {json_str}")
         update = telebot.types.Update.de_json(json_str)
         bot.process_new_updates([update])
-        return "¡OK!", 200
+        return "OK", 200
     except Exception as e:
-        print(f"Error al procesar la actualización: {e}")
-        return "Error", 500
+        print(f"Error en webhook: {e}")
+        return str(e), 500
 
 @app.route("/")
-def webhook():
+def index():
     try:
+        # Obtén la URL de Render desde las variables de entorno
+        WEBHOOK_URL = os.getenv('RENDER_EXTERNAL_URL', '')
+        if not WEBHOOK_URL:
+            return "ERROR: RENDER_EXTERNAL_URL no está configurada", 500
+            
+        # Configurar el webhook
         bot.remove_webhook()
-        # Asegúrate de reemplazar la URL con tu dominio de Render
-        webhook_url = f"https://buscasitiosbot.onrender.com/{TOKEN}"
-        bot.set_webhook(url=webhook_url)
-        return "Webhook configurado!", 200
+        bot.set_webhook(url=f"{WEBHOOK_URL}/webhook")
+        return "Webhook configurado correctamente!", 200
     except Exception as e:
         print(f"Error configurando webhook: {e}")
-        return "Error", 500
+        return str(e), 500
 
 if __name__ == "__main__":
     # Iniciar la aplicación en el puerto que Render asigna
